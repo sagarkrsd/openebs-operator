@@ -222,6 +222,7 @@ type Planner struct {
 	DesiredOpenEBS                *unstructured.Unstructured
 	DesiredAdoptOpenEBSComponents []*unstructured.Unstructured
 
+	OpenEBSLabels              map[string]string
 	OpenEBSVersion             string
 	DefaultStoragePath         string
 	ImagePrefix                string
@@ -326,6 +327,7 @@ func (p *Planner) plan() ReconcileResponse {
 
 func (p *Planner) init() error {
 	var initFuncs = []func() error{
+		p.SetOpenEBSLabels,
 		p.IdentifyOpenEBSVersion,
 		p.getDesiredAdoptOpenEBS,
 		// Ordering of getDesiredAdoptOpenEBSComponents
@@ -428,8 +430,9 @@ func (p *Planner) getDesiredOpenEBS() error {
 	openebs := &unstructured.Unstructured{}
 	openebs.SetUnstructuredContent(map[string]interface{}{
 		"metadata": map[string]interface{}{
-			"name":      "my-openebs-123",
+			"name":      "adopted-OpenEBS-config",
 			"namespace": p.ObservedAdoptOpenEBS.Namespace,
+			"labels":    p.OpenEBSLabels,
 		},
 		"spec": map[string]interface{}{
 			"version":                    p.OpenEBSVersion,
@@ -458,5 +461,15 @@ func (p *Planner) getDesiredOpenEBS() error {
 
 	// set the desired OpenEBS structure
 	p.DesiredOpenEBS = openebs
+	return nil
+}
+
+// SetOpenEBSLabels sets some labels to OpenEBS CR especially in order to identify if the
+// OpenEBS is created due to adoption or not.
+func (p *Planner) SetOpenEBSLabels() error {
+	if p.OpenEBSLabels == nil {
+		p.OpenEBSLabels = make(map[string]string, 0)
+	}
+	p.OpenEBSLabels[types.OpenEBSUpgradeDAOAdoptLabelKey] = types.OpenEBSUpgradeDAOAdoptLabelValue
 	return nil
 }
